@@ -43,6 +43,9 @@ final class VoiceEngine {
     private var transcriber: SpeechTranscriber?
     private var inputContinuation: AsyncStream<AnalyzerInput>.Continuation?
     private var resultsTask: Task<Void, Never>?
+    /// SpeechAnalyzer assets (locale reserve + model install) are done once per
+    /// app run — they persist system-wide, so later listens skip the check.
+    private static var analyzerAssetsReady = false
 
     // WhisperKit backend — model loaded once per app run and cached statically.
     private static let whisperModel = "openai_whisper-small.en"
@@ -138,16 +141,19 @@ final class VoiceEngine {
             )
             self.transcriber = transcriber
 
-            // Reserve (subscribe to) the locale first — the asset system won't
-            // report or perform the model download otherwise ("not subscribed to
-            // transcription.en"). Then install the on-device model if needed
-            // (first run downloads it; later runs return nil).
-            let reserved = (try? await AssetInventory.reserve(locale: locale)) ?? false
-            print("[VoiceEngine] reserve(en-US) = \(reserved)")
-            if let installRequest = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
-                print("[VoiceEngine] downloading speech model…")
-                try await installRequest.downloadAndInstall()
-                print("[VoiceEngine] speech model installed")
+            // Reserve the locale + install the on-device model once per app run.
+            // Reserving subscribes the app to the locale (without it the asset
+            // system won't download — "not subscribed to transcription.en"); the
+            // model installs system-wide, so later listens skip this entirely.
+            if !Self.analyzerAssetsReady {
+                let reserved = (try? await AssetInventory.reserve(locale: locale)) ?? false
+                print("[VoiceEngine] reserve(en-US) = \(reserved)")
+                if let installRequest = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+                    print("[VoiceEngine] downloading speech model…")
+                    try await installRequest.downloadAndInstall()
+                    print("[VoiceEngine] speech model installed")
+                }
+                Self.analyzerAssetsReady = true
             }
 
             let analyzer = SpeechAnalyzer(modules: [transcriber])

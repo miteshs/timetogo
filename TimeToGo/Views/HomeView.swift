@@ -38,70 +38,95 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 28) {
-                Spacer()
-
-                VStack(spacing: 6) {
-                    Text("\(todayWentCount)")
-                        .font(.system(size: 72, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                    Text(todayWentCount == 1 ? "time today" : "times today")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("You went \(todayWentCount) times today")
-
-                Button(action: logWentNow) {
-                    VStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 44))
-                        Text("I went now").font(.title2.bold())
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 28)
-                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 24))
-                    .foregroundStyle(.white)
+            ZStack {
+                GlassBackground()
+                VStack(spacing: 22) {
+                    Spacer()
+                    countCard
+                    wentButton
+                    voiceButton
+                    Spacer()
+                    nextReminderPill
                 }
                 .padding(.horizontal)
-                .accessibilityHint("Records that you used the bathroom just now")
-
-                Button {
-                    appState.presentReminder()
-                } label: {
-                    Label("Answer by voice", systemImage: "mic.fill")
-                        .font(.title3.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
-                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20))
-                }
-                .padding(.horizontal)
-
-                Spacer()
-
-                Group {
-                    if let snooze = pendingSnoozeDate {
-                        Label {
-                            TimelineView(.periodic(from: .now, by: 60)) { _ in
-                                Text("Next reminder in \(minutesRemaining(until: snooze))")
-                            }
-                        } icon: {
-                            Image(systemName: "clock")
-                        }
-                    } else {
-                        Label("Next reminder at \(nextReminderText)", systemImage: "clock")
-                    }
-                }
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .padding(.bottom)
             }
             .navigationTitle("TimeToGo")
         }
     }
 
+    // MARK: Pieces
+
+    private var countCard: some View {
+        VStack(spacing: 6) {
+            Text("\(todayWentCount)")
+                .font(.system(size: 76, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .contentTransition(.numericText())
+            Text(todayWentCount == 1 ? "time today" : "times today")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 30)
+        .frame(maxWidth: .infinity)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(0.18)))
+        .shadow(color: .black.opacity(0.08), radius: 14, y: 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("You went \(todayWentCount) times today")
+    }
+
+    private var wentButton: some View {
+        Button(action: logWentNow) {
+            Label("I went now", systemImage: "checkmark.circle.fill")
+                .font(.title2.bold())
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+        }
+        .buttonStyle(.glassProminent)
+        .tint(.accentColor)
+        .accessibilityHint("Records that you used the bathroom just now")
+    }
+
+    private var voiceButton: some View {
+        Button {
+            appState.presentReminder()
+        } label: {
+            Label("Answer by voice", systemImage: "mic.fill")
+                .font(.title3.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+        }
+        .buttonStyle(.glass)
+    }
+
+    @ViewBuilder private var nextReminderPill: some View {
+        Group {
+            if let snooze = pendingSnoozeDate {
+                Label {
+                    TimelineView(.periodic(from: .now, by: 60)) { _ in
+                        Text("Next reminder in \(minutesRemaining(until: snooze))")
+                    }
+                } icon: {
+                    Image(systemName: "clock")
+                }
+            } else {
+                Label("Next reminder at \(nextReminderText)", systemImage: "clock")
+            }
+        }
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.15)))
+        .padding(.bottom, 8)
+    }
+
     private func logWentNow() {
-        context.insert(GoEvent(kind: .went, source: .manual))
-        try? context.save()
+        withAnimation(.snappy) {
+            context.insert(GoEvent(kind: .went, source: .manual))
+            try? context.save()
+        }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         Speaker.shared.speak("Logged.")
     }

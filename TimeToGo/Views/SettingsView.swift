@@ -11,10 +11,13 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            if isLocked {
-                lockScreen
-            } else {
-                settingsForm
+            ZStack {
+                GlassBackground()
+                if isLocked {
+                    lockScreen
+                } else {
+                    settingsForm
+                }
             }
         }
     }
@@ -133,6 +136,7 @@ struct SettingsView: View {
                 Text("Stops accidental changes that would disable reminders.")
             }
         }
+        .scrollContentBackground(.hidden)
         .navigationTitle("Settings")
         .onChange(of: settings.windowStartHour) { applyAndReschedule() }
         .onChange(of: settings.windowEndHour) { applyAndReschedule() }

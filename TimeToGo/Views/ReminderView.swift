@@ -18,60 +18,60 @@ struct ReminderView: View {
     private var settings: AppSettings { AppSettings.shared }
 
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
+        ZStack {
+            GlassBackground()
+            VStack(spacing: 24) {
+                Spacer()
 
-            Image(systemName: voice.state == .listening ? "mic.fill" : "questionmark.circle")
-                .font(.system(size: 56))
-                .foregroundStyle(voice.state == .listening ? Color.accentColor : .secondary)
-                .symbolEffect(.pulse, isActive: voice.state == .listening)
+                micBadge
 
-            Text(status)
-                .font(.title.bold())
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-
-            if !voice.transcript.isEmpty {
-                Text("“\(voice.transcript)”")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
+                Text(status)
+                    .font(.title.bold())
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
-            }
 
-            if let err = voice.lastErrorText {
-                Text(err)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-            }
-
-            Spacer()
-
-            #if targetEnvironment(simulator)
-            // The Simulator has no on-device speech models, so type a reply to
-            // exercise the same parse → handle flow. (Real voice works on device.)
-            HStack {
-                TextField("Type a reply (sim test)", text: $typedAnswer)
-                    .textFieldStyle(.roundedBorder)
-                    .submitLabel(.send)
-                    .onSubmit { submitTyped() }
-                Button("Send") { submitTyped() }
-                    .buttonStyle(.borderedProminent)
-            }
-            .padding(.horizontal)
-            #endif
-
-            VStack(spacing: 14) {
-                bigButton("I went ✓", color: .green) { handle(.went, source: .button) }
-                bigButton("Snooze \(settings.defaultSnoozeMinutes) min", color: .orange) {
-                    handle(.snooze(minutes: settings.defaultSnoozeMinutes), source: .button)
+                if !voice.transcript.isEmpty {
+                    Text("“\(voice.transcript)”")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
                 }
-                bigButton("Stop", color: .red) { handle(.stop, source: .button) }
+
+                if let err = voice.lastErrorText {
+                    Text(err)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+
+                Spacer()
+
+                #if targetEnvironment(simulator)
+                // The Simulator has no on-device speech models, so type a reply to
+                // exercise the same parse → handle flow. (Real voice works on device.)
+                HStack {
+                    TextField("Type a reply (sim test)", text: $typedAnswer)
+                        .textFieldStyle(.roundedBorder)
+                        .submitLabel(.send)
+                        .onSubmit { submitTyped() }
+                    Button("Send") { submitTyped() }
+                        .buttonStyle(.borderedProminent)
+                }
+                .padding(.horizontal)
+                #endif
+
+                VStack(spacing: 14) {
+                    bigButton("I went ✓", color: .green) { handle(.went, source: .button) }
+                    bigButton("Snooze \(settings.defaultSnoozeMinutes) min", color: .orange) {
+                        handle(.snooze(minutes: settings.defaultSnoozeMinutes), source: .button)
+                    }
+                    bigButton("Stop", color: .red) { handle(.stop, source: .button) }
+                }
+                .padding(.horizontal)
+                .padding(.bottom)
             }
-            .padding(.horizontal)
-            .padding(.bottom)
         }
         .interactiveDismissDisabled(false)
         .task { await maybeStartFlow() }
@@ -92,16 +92,27 @@ struct ReminderView: View {
         }
     }
 
+    private var micBadge: some View {
+        Image(systemName: voice.state == .listening ? "mic.fill" : "questionmark.circle")
+            .font(.system(size: 50))
+            .foregroundStyle(voice.state == .listening ? Color.accentColor : .secondary)
+            .symbolEffect(.pulse, isActive: voice.state == .listening)
+            .frame(width: 112, height: 112)
+            .background(.ultraThinMaterial, in: Circle())
+            .overlay(Circle().strokeBorder(.white.opacity(0.18)))
+            .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+    }
+
     @ViewBuilder
     private func bigButton(_ title: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
                 .font(.title2.bold())
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 22)
-                .background(color, in: RoundedRectangle(cornerRadius: 20))
-                .foregroundStyle(.white)
+                .padding(.vertical, 16)
         }
+        .buttonStyle(.glassProminent)
+        .tint(color)
         .accessibilityLabel(title)
     }
 

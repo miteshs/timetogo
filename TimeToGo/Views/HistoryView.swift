@@ -15,8 +15,11 @@ struct HistoryView: View {
 
     var body: some View {
         NavigationStack {
-            content
-                .navigationTitle("History")
+            ZStack {
+                GlassBackground()
+                content
+            }
+            .navigationTitle("History")
         }
     }
 
@@ -35,6 +38,7 @@ struct HistoryView: View {
                     daySection(day)
                 }
             }
+            .scrollContentBackground(.hidden)
         }
     }
 

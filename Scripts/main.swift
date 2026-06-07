@@ -29,6 +29,10 @@ expectIntent("i wnt", .went)              // fuzzy: 1 edit
 expectIntent("done", .went)
 expectIntent("all finished", .went)
 expectIntent("yep", .went)
+// Personal pronunciation: the recognizer renders his "I went" as "I ran".
+expectIntent("I ran", .went)
+expectIntent("ran", .went)
+expectIntent("I rang", .went)
 
 expectIntent("snooze", .snooze(minutes: 5))           // default
 expectIntent("snooze ten minutes", .snooze(minutes: 10))

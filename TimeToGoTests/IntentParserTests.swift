@@ -10,6 +10,13 @@ struct IntentParserTests {
         #expect(IntentParser.parse(input) == .went)
     }
 
+    @Test("Personal pronunciation: recognizer renders his 'I went' as 'ran'", arguments: [
+        "I ran", "ran", "I rang", "i run"
+    ])
+    func personalWentVariants(input: String) {
+        #expect(IntentParser.parse(input) == .went)
+    }
+
     @Test("Stop commands", arguments: ["stop", "cancel", "no", "leave me alone"])
     func stopCommands(input: String) {
         #expect(IntentParser.parse(input) == .stop)

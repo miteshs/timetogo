@@ -29,3 +29,6 @@ Carthage/Build/
 
 ## WhisperKit / CoreML model cache (downloaded at runtime, large)
 *.mlmodelc
+
+## Private voice recordings — never commit (minor's data)
+Samples/

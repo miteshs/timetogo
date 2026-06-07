@@ -27,6 +27,12 @@ enum IntentParser {
     // MARK: Keyword sets
 
     private static let wentWords = ["went", "gone", "done", "finished", "complete", "completed", "did", "yep", "yeah"]
+
+    /// On-device speech recognition renders this user's pronunciation of "I went"
+    /// as these words (confirmed from his own recordings during Phase-6 tuning —
+    /// he says "I went", the recognizer hears "I ran"). Treated as `.went`.
+    /// Add new variants here as more of his samples are reviewed.
+    private static let personalWentVariants = ["ran", "rang", "run"]
     private static let snoozeWords = ["snooze", "later", "wait", "minute", "minutes", "min", "mins", "soon", "while", "remind", "bit"]
     // Multi-word snooze cues (checked as substrings).
     private static let snoozePhrases = ["not yet", "not now", "in a bit", "hold on", "a while", "give me", "couple"]
@@ -41,7 +47,7 @@ enum IntentParser {
 
         let hasStop = containsAny(text, stopWords) || containsAnyPhrase(text, stopPhrases)
         let hasSnooze = containsAny(text, snoozeWords) || containsAnyPhrase(text, snoozePhrases)
-        let hasWent = containsAny(text, wentWords)
+        let hasWent = containsAny(text, wentWords) || containsAny(text, personalWentVariants)
         let number = parseNumber(text)
 
         // Explicit stop wins, unless it's actually a snooze ("not now, later").

@@ -6,6 +6,8 @@ struct SettingsView: View {
     @State private var pinEntry = ""
     @State private var newPIN = ""
     @State private var lastTestMessage: String?
+    @State private var whisperStatus: String?
+    @State private var whisperLoading = false
 
     var body: some View {
         NavigationStack {
@@ -73,11 +75,18 @@ struct SettingsView: View {
 
             Section {
                 Toggle("Use WhisperKit (advanced)", isOn: $settings.useWhisperKit)
-                    .disabled(true)
+                if let whisperStatus {
+                    HStack(spacing: 10) {
+                        if whisperLoading { ProgressView() }
+                        Text(whisperStatus)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             } header: {
                 Text("Voice")
             } footer: {
-                Text("Default voice runs on-device via Apple Speech. WhisperKit is an optional upgrade enabled during on-device tuning (Phase 6).")
+                Text("Default voice is Apple's on-device recognizer. WhisperKit may handle atypical speech better, but downloads a ~250 MB model on first use (Wi-Fi) and responds a little slower.")
             }
 
             Section("Reminders") {
@@ -128,6 +137,13 @@ struct SettingsView: View {
         .onChange(of: settings.windowStartHour) { applyAndReschedule() }
         .onChange(of: settings.windowEndHour) { applyAndReschedule() }
         .onChange(of: settings.defaultSnoozeMinutes) { settings.persist(); NotificationScheduler.shared.registerCategories() }
+        .onChange(of: settings.useWhisperKit) {
+            settings.persist()
+            if settings.useWhisperKit { loadWhisperModel() } else { whisperStatus = nil }
+        }
+        .task {
+            if settings.useWhisperKit, VoiceEngine.isWhisperReady { whisperStatus = "Voice model ready." }
+        }
     }
 
     // MARK: Helpers
@@ -156,6 +172,26 @@ struct SettingsView: View {
 
     private func reschedule() async {
         await NotificationScheduler.shared.rescheduleDaily(times: settings.reminderTimes)
+    }
+
+    /// Download + load the WhisperKit model when the toggle is turned on, so it's
+    /// ready before a reminder fires. ~250 MB on first use; cached afterward.
+    private func loadWhisperModel() {
+        guard !VoiceEngine.isWhisperReady else { whisperStatus = "Voice model ready."; return }
+        whisperLoading = true
+        whisperStatus = "Downloading voice model (~250 MB)… keep this screen open on Wi-Fi."
+        Task {
+            do {
+                try await VoiceEngine.loadWhisper()
+                whisperLoading = false
+                whisperStatus = "Voice model ready."
+            } catch {
+                whisperLoading = false
+                whisperStatus = "Couldn't load the model: \(error.localizedDescription)"
+                settings.useWhisperKit = false
+                settings.persist()
+            }
+        }
     }
 
     private func hourLabel(_ hour: Int) -> String {

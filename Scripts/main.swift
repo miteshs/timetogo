@@ -33,6 +33,11 @@ expectIntent("yep", .went)
 expectIntent("I ran", .went)
 expectIntent("ran", .went)
 expectIntent("I rang", .went)
+// Natural ways of saying he already went — all count as the "I went" button.
+expectIntent("I am done", .went)
+expectIntent("just did", .went)
+expectIntent("I already went", .went)
+expectIntent("all set", .went)
 
 expectIntent("snooze", .snooze(minutes: 5))           // default
 expectIntent("snooze ten minutes", .snooze(minutes: 10))

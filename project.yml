@@ -22,12 +22,23 @@ settings:
     # iPhone only.
     TARGETED_DEVICE_FAMILY: "1"
 
+packages:
+  # On-device Whisper (CoreML) — the opt-in voice backend. The repo
+  # argmaxinc/WhisperKit is now the "argmax-oss-swift" monorepo (v1.0.0); we
+  # depend on its WhisperKit product. Platforms iOS 16+ (we target 26).
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit
+    from: "1.0.0"
+
 targets:
   TimeToGo:
     type: application
     platform: iOS
     sources:
       - path: TimeToGo
+    dependencies:
+      - package: WhisperKit
+        product: WhisperKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mpshah.timetogo

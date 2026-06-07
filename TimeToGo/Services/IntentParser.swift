@@ -19,7 +19,7 @@ enum IntentParser {
 
     /// Command words we feed to the recognizer as hints (improves accuracy).
     static let commandHints = [
-        "I went", "went", "done", "finished",
+        "I went", "went", "I already went", "done", "I am done", "just did", "did", "finished",
         "snooze", "later", "minutes", "ten minutes", "five minutes",
         "stop", "cancel"
     ]
@@ -33,6 +33,9 @@ enum IntentParser {
     /// he says "I went", the recognizer hears "I ran"). Treated as `.went`.
     /// Add new variants here as more of his samples are reviewed.
     private static let personalWentVariants = ["ran", "rang", "run"]
+    /// Natural multi-word ways of saying he already went (checked as substrings),
+    /// so spoken answers like "just did" or "all set" count as the "I went" button.
+    private static let wentPhrases = ["just did", "already went", "i did", "did it", "all set"]
     private static let snoozeWords = ["snooze", "later", "wait", "minute", "minutes", "min", "mins", "soon", "while", "remind", "bit"]
     // Multi-word snooze cues (checked as substrings).
     private static let snoozePhrases = ["not yet", "not now", "in a bit", "hold on", "a while", "give me", "couple"]
@@ -47,7 +50,7 @@ enum IntentParser {
 
         let hasStop = containsAny(text, stopWords) || containsAnyPhrase(text, stopPhrases)
         let hasSnooze = containsAny(text, snoozeWords) || containsAnyPhrase(text, snoozePhrases)
-        let hasWent = containsAny(text, wentWords) || containsAny(text, personalWentVariants)
+        let hasWent = containsAny(text, wentWords) || containsAny(text, personalWentVariants) || containsAnyPhrase(text, wentPhrases)
         let number = parseNumber(text)
 
         // Explicit stop wins, unless it's actually a snooze ("not now, later").

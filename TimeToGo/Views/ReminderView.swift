@@ -9,7 +9,10 @@ struct ReminderView: View {
     @State private var voice = VoiceEngine()
     @State private var status = "Is it time to go?"
     @State private var didHandle = false
+    @State private var voiceAttempts = 0
+    @State private var typedAnswer = ""
 
+    private let maxVoiceAttempts = 2
     private var settings: AppSettings { AppSettings.shared }
 
     var body: some View {
@@ -34,7 +37,29 @@ struct ReminderView: View {
                     .padding(.horizontal)
             }
 
+            if let err = voice.lastErrorText {
+                Text(err)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+
             Spacer()
+
+            #if targetEnvironment(simulator)
+            // The Simulator has no on-device speech models, so type a reply to
+            // exercise the same parse → handle flow. (Real voice works on device.)
+            HStack {
+                TextField("Type a reply (sim test)", text: $typedAnswer)
+                    .textFieldStyle(.roundedBorder)
+                    .submitLabel(.send)
+                    .onSubmit { submitTyped() }
+                Button("Send") { submitTyped() }
+                    .buttonStyle(.borderedProminent)
+            }
+            .padding(.horizontal)
+            #endif
 
             VStack(spacing: 14) {
                 bigButton("I went ✓", color: .green) { handle(.went, source: .button) }
@@ -71,26 +96,70 @@ struct ReminderView: View {
 
     private func startFlow() async {
         Speaker.shared.configureSession()
-        Speaker.shared.speak("Is it time to go? You can say: I went, snooze, or stop.")
 
+        #if targetEnvironment(simulator)
+        // No speech models in the Simulator — skip the (doomed) voice attempt and
+        // let the tester type or tap. Real voice runs on device.
+        status = "Voice needs a real device. Type a reply or tap a button."
+        await speak("Is it time to go?")
+        #else
         let granted = await VoiceEngine.requestPermissions()
         guard granted else {
             status = "Tap a button below."
             voice.state = .denied
             return
         }
-        // Brief pause so the spoken prompt doesn't bleed into the mic.
-        try? await Task.sleep(for: .seconds(2.4))
+        // Speak the prompt fully, THEN open the mic (no overlap), then listen.
+        await speak("Is it time to go? You can say: I went, snooze, or stop.")
+        beginListening()
+        #endif
+    }
+
+    /// Debug (simulator): parse a typed reply through the same path as voice.
+    private func submitTyped() {
+        let text = typedAnswer.trimmingCharacters(in: .whitespaces)
+        typedAnswer = ""
+        guard !didHandle, !text.isEmpty else { return }
+        let intent = IntentParser.parse(text, defaultSnooze: settings.defaultSnoozeMinutes)
+        if intent == .unknown {
+            status = "Didn't understand: “\(text)”"
+            return
+        }
+        handle(intent, source: .voice)
+    }
+
+    /// Speak and wait until it finishes.
+    private func speak(_ text: String) async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            Speaker.shared.speak(text) { cont.resume() }
+        }
+    }
+
+    private func beginListening() {
         guard !didHandle else { return }
+        status = "Listening… take your time."
         voice.start { text in handleVoice(text) }
     }
 
     private func handleVoice(_ text: String) {
         guard !didHandle else { return }
         let intent = IntentParser.parse(text, defaultSnooze: settings.defaultSnoozeMinutes)
+
         if intent == .unknown {
-            status = "Sorry, I didn't catch that. Please tap a button."
-            Speaker.shared.speak("Sorry, I didn't catch that. Please tap a button.")
+            voiceAttempts += 1
+            if voiceAttempts < maxVoiceAttempts {
+                // Encourage and give another full, generous listening window.
+                let nudge = text.isEmpty ? "Take your time. Say: I went, snooze, or stop."
+                                         : "I didn't quite catch that. Please say it again."
+                status = text.isEmpty ? "Take your time — I'm listening." : "One more time?"
+                Task {
+                    await speak(nudge)
+                    beginListening()
+                }
+                return
+            }
+            status = "No problem — please tap a button below."
+            Speaker.shared.speak("No problem. Please tap a button.")
             return
         }
         handle(intent, source: .voice)

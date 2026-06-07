@@ -29,5 +29,6 @@ struct TimeToGoApp: App {
         if granted {
             await NotificationScheduler.shared.rescheduleDaily(times: AppSettings.shared.reminderTimes)
         }
+        await VoiceEngine.logAssetDiagnostics()
     }
 }

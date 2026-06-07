@@ -17,7 +17,9 @@ import AVFoundation
 ///
 /// TIMING (accessibility-critical): a long "no speech yet" window lets the user
 /// take his time to begin; a short pause-timeout only starts *after* speech is
-/// detected, so he is never cut off mid-sentence.
+/// detected, so he is never cut off mid-sentence. As a fast path, the moment the
+/// live transcript already spells a complete command ("I went" / "stop") we
+/// finalize immediately instead of waiting the pause out — the big latency win.
 @MainActor
 @Observable
 final class VoiceEngine {
@@ -106,10 +108,39 @@ final class VoiceEngine {
     /// True once the Whisper model is loaded (so the UI can skip the "preparing" copy).
     static var isWhisperReady: Bool { whisper != nil }
 
+    /// One-time SpeechAnalyzer asset prep: subscribe to the locale and install
+    /// the on-device model. It persists system-wide, so this runs once per app
+    /// run and later listens skip it entirely. Reserving subscribes the app to
+    /// the locale (without it the asset system won't download — "not subscribed
+    /// to transcription.en").
+    private static func ensureAnalyzerAssets(for transcriber: SpeechTranscriber,
+                                             locale: Locale) async throws {
+        guard !analyzerAssetsReady else { return }
+        let reserved = (try? await AssetInventory.reserve(locale: locale)) ?? false
+        print("[VoiceEngine] reserve(\(locale.identifier(.bcp47))) = \(reserved)")
+        if let installRequest = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+            print("[VoiceEngine] downloading speech model…")
+            try await installRequest.downloadAndInstall()
+            print("[VoiceEngine] speech model installed")
+        }
+        analyzerAssetsReady = true
+    }
+
+    /// Warm up the default (Apple) speech model at launch, off the critical path,
+    /// so the first reminder's mic opens instantly instead of installing it then.
+    static func prewarmAnalyzerAssets() async {
+        guard !analyzerAssetsReady else { return }
+        let locale = Locale(identifier: "en-US")
+        let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [],
+                                            reportingOptions: [.volatileResults], attributeOptions: [])
+        do { try await ensureAnalyzerAssets(for: transcriber, locale: locale) }
+        catch { print("[VoiceEngine] prewarm assets error: \(error)") }
+    }
+
     func start(
         hints: [String] = IntentParser.commandHints,
         startWindow: TimeInterval = 12,
-        endpointSilence: TimeInterval = 2.5,
+        endpointSilence: TimeInterval = 1.2,
         onFinal: @escaping (String) -> Void
     ) {
         stop()
@@ -141,20 +172,9 @@ final class VoiceEngine {
             )
             self.transcriber = transcriber
 
-            // Reserve the locale + install the on-device model once per app run.
-            // Reserving subscribes the app to the locale (without it the asset
-            // system won't download — "not subscribed to transcription.en"); the
-            // model installs system-wide, so later listens skip this entirely.
-            if !Self.analyzerAssetsReady {
-                let reserved = (try? await AssetInventory.reserve(locale: locale)) ?? false
-                print("[VoiceEngine] reserve(en-US) = \(reserved)")
-                if let installRequest = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
-                    print("[VoiceEngine] downloading speech model…")
-                    try await installRequest.downloadAndInstall()
-                    print("[VoiceEngine] speech model installed")
-                }
-                Self.analyzerAssetsReady = true
-            }
+            // Reserve the locale + install the on-device model once per app run
+            // (usually already done at launch via `prewarmAnalyzerAssets`).
+            try await Self.ensureAnalyzerAssets(for: transcriber, locale: locale)
 
             let analyzer = SpeechAnalyzer(modules: [transcriber])
             self.analyzer = analyzer
@@ -176,7 +196,16 @@ final class VoiceEngine {
                         if !text.isEmpty {
                             self.transcript = text
                             self.heardSpeech = true
-                            self.armEndpointTimer(endpointSilence)
+                            // Fast path: if the live transcript already spells a
+                            // complete command, finalize now instead of waiting
+                            // out the end-of-speech silence. (Mirror the timer:
+                            // finish from a separate task so finalize can still
+                            // drain this results stream.)
+                            if self.isCompleteCommand(text) {
+                                Task { @MainActor [weak self] in await self?.finish() }
+                            } else {
+                                self.armEndpointTimer(endpointSilence)
+                            }
                         }
                     }
                 } catch {
@@ -398,9 +427,20 @@ final class VoiceEngine {
     // Commands are short ("I went", "snooze", "stop"); cap the capture so it
     // can't run on and mash multiple phrases into one transcript.
     private static let maxUtterance: TimeInterval = 5
-    // Whisper transcribes in a batch, so a shorter end-of-speech pause keeps it
-    // responsive (the Apple path can afford a longer one for live results).
-    private static let whisperEndpointSilence: TimeInterval = 1.0
+    // Whisper transcribes in a batch (no early-exit possible), so the end-of-
+    // speech pause is the only knob — keep it short to stay responsive.
+    private static let whisperEndpointSilence: TimeInterval = 0.7
+
+    /// True when the live transcript already holds an unambiguous, *complete*
+    /// command, so we can finalize without waiting out the silence timeout. Only
+    /// `.went`/`.stop` qualify; snooze waits so a trailing number ("snooze ten
+    /// minutes") still lands rather than falling back to the default.
+    private func isCompleteCommand(_ text: String) -> Bool {
+        switch IntentParser.parse(text, defaultSnooze: AppSettings.shared.defaultSnoozeMinutes) {
+        case .went, .stop: return true
+        case .snooze, .unknown: return false
+        }
+    }
 
     /// Dispatch to whichever backend is running.
     private func finish() async {

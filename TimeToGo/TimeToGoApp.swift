@@ -30,5 +30,10 @@ struct TimeToGoApp: App {
             await NotificationScheduler.shared.rescheduleDaily(times: AppSettings.shared.reminderTimes)
         }
         await VoiceEngine.logAssetDiagnostics()
+        // Warm the default (Apple) speech model now, off the critical path, so the
+        // first reminder's mic opens instantly instead of installing it then.
+        if !AppSettings.shared.useWhisperKit {
+            Task { await VoiceEngine.prewarmAnalyzerAssets() }
+        }
     }
 }

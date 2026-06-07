@@ -6,9 +6,11 @@ import SwiftData
 struct ReminderView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @State private var voice = VoiceEngine()
     @State private var status = "Is it time to go?"
     @State private var didHandle = false
+    @State private var didStartFlow = false
     @State private var voiceAttempts = 0
     @State private var typedAnswer = ""
 
@@ -72,7 +74,18 @@ struct ReminderView: View {
             .padding(.bottom)
         }
         .interactiveDismissDisabled(false)
-        .task { await startFlow() }
+        .task { await maybeStartFlow() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                // Cold launch from a notification: the sheet appears before the
+                // app is foreground-active. Start once we actually are.
+                Task { await maybeStartFlow() }
+            } else {
+                // Capturing audio off the foreground is forbidden — stop cleanly.
+                voice.stop()
+                Speaker.shared.stop()
+            }
+        }
         .onDisappear {
             voice.stop()
             Speaker.shared.stop()
@@ -93,6 +106,17 @@ struct ReminderView: View {
     }
 
     // MARK: Flow
+
+    /// Start the voice flow exactly once, and only when the app is truly
+    /// foreground-active. On a cold launch from a notification the reminder
+    /// sheet's `.task` runs while the app is still becoming active; opening the
+    /// mic then crashes (iOS forbids capture off the foreground), which looked
+    /// like the app "crashing or going to the background" on a notification tap.
+    private func maybeStartFlow() async {
+        guard scenePhase == .active, !didStartFlow else { return }
+        didStartFlow = true
+        await startFlow()
+    }
 
     private func startFlow() async {
         Speaker.shared.configureSession()

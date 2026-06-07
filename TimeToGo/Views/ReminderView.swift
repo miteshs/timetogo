@@ -13,6 +13,7 @@ struct ReminderView: View {
     @State private var didStartFlow = false
     @State private var voiceAttempts = 0
     @State private var typedAnswer = ""
+    @State private var confettiTrigger = 0
 
     private let maxVoiceAttempts = 2
     private var settings: AppSettings { AppSettings.shared }
@@ -72,6 +73,8 @@ struct ReminderView: View {
                 .padding(.horizontal)
                 .padding(.bottom)
             }
+
+            ConfettiView(trigger: confettiTrigger)
         }
         .interactiveDismissDisabled(false)
         .task { await maybeStartFlow() }
@@ -207,8 +210,10 @@ struct ReminderView: View {
         switch intent {
         case .went:
             log(.went, source)
-            status = "Great — logged."
-            Speaker.shared.speak("Great, logged.")
+            NotificationScheduler.shared.skipNextReminderIfSoon()
+            confettiTrigger += 1
+            status = "Great job! 🎉"
+            Speaker.shared.speak(Praise.random(name: settings.childName))
         case .snooze(let minutes):
             log(.snoozed, source, minutes)
             Task { await NotificationScheduler.shared.scheduleSnooze(minutes: minutes) }

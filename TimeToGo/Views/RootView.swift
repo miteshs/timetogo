@@ -8,12 +8,15 @@ struct RootView: View {
             HomeView()
                 .tabItem { Label("Home", systemImage: "house.fill") }
                 .tag(0)
+            RewardsView()
+                .tabItem { Label("Stickers", systemImage: "star.fill") }
+                .tag(1)
             HistoryView()
                 .tabItem { Label("History", systemImage: "list.bullet.rectangle") }
-                .tag(1)
+                .tag(2)
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
-                .tag(2)
+                .tag(3)
         }
         .sheet(isPresented: $appState.showReminder) {
             ReminderView()

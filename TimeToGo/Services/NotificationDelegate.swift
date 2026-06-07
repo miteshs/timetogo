@@ -35,6 +35,7 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
             switch action {
             case NotificationScheduler.actionWent:
                 Services.shared.log(.went, source: .button)
+                NotificationScheduler.shared.skipNextReminderIfSoon()
 
             case NotificationScheduler.actionStop:
                 Services.shared.log(.stopped, source: .button)

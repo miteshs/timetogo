@@ -19,6 +19,10 @@ final class AppSettings {
     var settingsPIN: String = ""
     /// When this build was first launched — drives the "reinstall by" banner.
     var installDate: Date = .now
+    /// Daily target number of times — drives the Home progress ring + goal cheer.
+    var dailyGoal: Int = 6
+    /// Child's name, used in spoken praise ("Great job, Sean!").
+    var childName: String = "Sean"
 
     @ObservationIgnored private let defaults = UserDefaults.standard
 
@@ -31,6 +35,8 @@ final class AppSettings {
         static let whisper = "settings.useWhisperKit"
         static let pin = "settings.pin"
         static let install = "settings.installDate"
+        static let goal = "settings.dailyGoal"
+        static let name = "settings.childName"
     }
 
     private init() {
@@ -46,6 +52,8 @@ final class AppSettings {
         } else {
             defaults.set(installDate, forKey: Key.install)
         }
+        if defaults.object(forKey: Key.goal) != nil { dailyGoal = max(1, defaults.integer(forKey: Key.goal)) }
+        childName = defaults.string(forKey: Key.name) ?? childName
     }
 
     func persist() {
@@ -56,6 +64,8 @@ final class AppSettings {
         defaults.set(defaultSnoozeMinutes, forKey: Key.snooze)
         defaults.set(useWhisperKit, forKey: Key.whisper)
         defaults.set(settingsPIN, forKey: Key.pin)
+        defaults.set(dailyGoal, forKey: Key.goal)
+        defaults.set(childName, forKey: Key.name)
     }
 
     /// The full daily reminder set derived from the current window/caregiver settings.

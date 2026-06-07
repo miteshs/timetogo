@@ -108,6 +108,11 @@ check(summaries.first?.count == 3, "today has 3 events")
 check(summaries.first?.times == [at(0, 15), at(0, 18), at(0, 21)], "today's times sorted ascending")
 check(HistoryStats.count(on: Date(), in: sample) == 3, "count(on: today) == 3")
 
+// Streak: sample has today, yesterday, and 2 days ago → 3 in a row.
+check(HistoryStats.currentStreak(sample) == 3, "currentStreak == 3 for today/-1/-2")
+check(HistoryStats.currentStreak([at(0, 15), at(-2, 9)]) == 1, "currentStreak == 1 when yesterday missing")
+check(HistoryStats.currentStreak([]) == 0, "currentStreak == 0 for empty")
+
 // MARK: Result
 
 print("")

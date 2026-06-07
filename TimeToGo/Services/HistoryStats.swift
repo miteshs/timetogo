@@ -29,4 +29,29 @@ enum HistoryStats {
         let target = calendar.startOfDay(for: date)
         return timestamps.filter { calendar.startOfDay(for: $0) == target }.count
     }
+
+    /// Consecutive days with at least one "went", counting back from today (or
+    /// from yesterday if there's nothing yet today, so a fresh morning doesn't
+    /// read as a broken streak). Returns 0 if the most recent day is older.
+    static func currentStreak(_ timestamps: [Date], asOf now: Date = .now, calendar: Calendar = .current) -> Int {
+        let days = Set(timestamps.map { calendar.startOfDay(for: $0) })
+        guard !days.isEmpty else { return 0 }
+        let today = calendar.startOfDay(for: now)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)
+        var cursor: Date
+        if days.contains(today) {
+            cursor = today
+        } else if let yesterday, days.contains(yesterday) {
+            cursor = yesterday
+        } else {
+            return 0
+        }
+        var streak = 0
+        while days.contains(cursor) {
+            streak += 1
+            guard let prev = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = prev
+        }
+        return streak
+    }
 }

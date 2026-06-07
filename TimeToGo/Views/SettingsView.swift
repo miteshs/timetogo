@@ -80,6 +80,16 @@ struct SettingsView: View {
             }
 
             Section {
+                Stepper("Goal: \(settings.dailyGoal) per day", value: $settings.dailyGoal, in: 1...20)
+                TextField("Child's name", text: $settings.childName)
+                    .textInputAutocapitalization(.words)
+            } header: {
+                Text("Personalize")
+            } footer: {
+                Text("The goal fills the ring on Home. The name is used in spoken praise.")
+            }
+
+            Section {
                 Toggle("Use WhisperKit (advanced)", isOn: $settings.useWhisperKit)
                 if let whisperStatus {
                     HStack(spacing: 10) {
@@ -158,6 +168,8 @@ struct SettingsView: View {
             settings.persist()
             if settings.useWhisperKit { loadWhisperModel() } else { whisperStatus = nil }
         }
+        .onChange(of: settings.dailyGoal) { settings.persist() }
+        .onChange(of: settings.childName) { settings.persist() }
         .task {
             if settings.useWhisperKit, VoiceEngine.isWhisperReady { whisperStatus = "Voice model ready." }
         }

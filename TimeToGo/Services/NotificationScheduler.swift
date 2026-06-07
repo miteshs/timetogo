@@ -74,24 +74,50 @@ final class NotificationScheduler {
 
     // MARK: Daily schedule
 
-    /// Replace the repeating daily reminders with the given set.
-    func rescheduleDaily(times: [ReminderTime] = ReminderSchedule.dailyTimes()) async {
+    /// How many days of reminders to keep scheduled ahead as one-shots.
+    /// 5 × ~10/day = 50, under iOS's 64-pending limit; re-armed on every launch
+    /// and after each "went", so a few days stay buffered even if unopened.
+    static let scheduleWindowDays = 5
+    /// After a "went", skip any reminder due within this window so it doesn't
+    /// nag right after he just went.
+    static let suppressionWindow: TimeInterval = 45 * 60
+
+    /// (Re)schedule the upcoming reminders as individual one-shots — so a single
+    /// occurrence can be skipped. Pass `suppressingNear` to drop reminders due
+    /// within `suppressionWindow` after that moment (used right after a "went").
+    func rescheduleDaily(times: [ReminderTime] = ReminderSchedule.dailyTimes(),
+                         suppressingNear: Date? = nil) async {
         let pending = await center.pendingNotificationRequests()
         let staleIDs = pending.map(\.identifier).filter { $0.hasPrefix(Self.dailyPrefix) }
         center.removePendingNotificationRequests(withIdentifiers: staleIDs)
 
-        for time in times {
-            var comps = DateComponents()
-            comps.hour = time.hour
-            comps.minute = time.minute
-            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
-            let request = UNNotificationRequest(
-                identifier: time.id,
-                content: makeContent(isCaregiver: time.isCaregiver),
-                trigger: trigger
-            )
-            try? await center.add(request)
+        let cal = Calendar.current
+        let now = Date()
+        for dayOffset in 0..<Self.scheduleWindowDays {
+            guard let day = cal.date(byAdding: .day, value: dayOffset, to: now) else { continue }
+            for time in times {
+                guard let fire = cal.date(bySettingHour: time.hour, minute: time.minute, second: 0, of: day),
+                      fire > now else { continue }
+                if let near = suppressingNear {
+                    let gap = fire.timeIntervalSince(near)
+                    if gap >= 0, gap < Self.suppressionWindow { continue }
+                }
+                let comps = cal.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
+                let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+                let request = UNNotificationRequest(
+                    identifier: "\(Self.dailyPrefix)\(Int(fire.timeIntervalSince1970))",
+                    content: makeContent(isCaregiver: time.isCaregiver),
+                    trigger: trigger
+                )
+                try? await center.add(request)
+            }
         }
+    }
+
+    /// Call after a logged "went": re-arm the window, skipping the imminent
+    /// reminder so it doesn't fire right after he just went.
+    func skipNextReminderIfSoon() {
+        Task { await rescheduleDaily(times: AppSettings.shared.reminderTimes, suppressingNear: Date()) }
     }
 
     // MARK: Snooze + test

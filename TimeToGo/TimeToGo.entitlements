@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Lets Time-Sensitive reminders break through Focus / Do Not Disturb.
+	  If Xcode signing on a FREE Apple ID rejects this, remove this entitlement
+	  (and the CODE_SIGN_ENTITLEMENTS line in project.yml). The app still runs;
+	  reminders just won't pierce Focus modes.
+	-->
+	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<true/>
+</dict>
+</plist>

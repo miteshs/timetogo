@@ -1,0 +1,71 @@
+name: TimeToGo
+
+options:
+  bundleIdPrefix: com.mpshah
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  developmentLanguage: en
+
+settings:
+  base:
+    # Swift 5 language mode on the Swift 6.2 toolchain: guarantees a clean first
+    # build; we can flip to Swift 6 language mode after the first green compile.
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    # iPhone only.
+    TARGETED_DEVICE_FAMILY: "1"
+
+targets:
+  TimeToGo:
+    type: application
+    platform: iOS
+    sources:
+      - path: TimeToGo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mpshah.timetogo
+        PRODUCT_NAME: TimeToGo
+        GENERATE_INFOPLIST_FILE: YES
+        ENABLE_PREVIEWS: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        # Portrait only, no status-bar fuss — keep it simple for one user.
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        # Privacy strings (shown when first asking for mic + speech).
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "TimeToGo listens for your spoken reply — \"I went\", \"snooze\", or \"stop\" — to a reminder. Audio stays on your device."
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "TimeToGo turns your spoken reply into a command. Recognition runs on-device."
+        # NOTE (free Apple ID): if Xcode signing rejects this entitlement, delete
+        # the CODE_SIGN_ENTITLEMENTS line below — the app still works, reminders
+        # just won't break through Focus/Do-Not-Disturb.
+        CODE_SIGN_ENTITLEMENTS: TimeToGo/TimeToGo.entitlements
+
+  TimeToGoTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: TimeToGoTests
+    dependencies:
+      - target: TimeToGo
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.mpshah.timetogo.tests
+
+schemes:
+  TimeToGo:
+    build:
+      targets:
+        TimeToGo: all
+        TimeToGoTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - TimeToGoTests

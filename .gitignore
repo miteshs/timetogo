@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+## Xcode — user-specific
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+## Build output
+build/
+DerivedData/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+## Swift Package Manager
+.build/
+.swiftpm/
+
+## Dependency managers (unused, kept for safety)
+Pods/
+Carthage/Build/
+
+## WhisperKit / CoreML model cache (downloaded at runtime, large)
+*.mlmodelc

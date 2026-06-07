@@ -16,6 +16,9 @@ settings:
     MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "1"
     CODE_SIGN_STYLE: Automatic
+    # Free Apple ID "Personal Team" (mpshah@gmail.com). Baked in so xcodegen
+    # regeneration keeps the team and `make device` can sign without the GUI.
+    DEVELOPMENT_TEAM: "7LC9LFH33N"
     # iPhone only.
     TARGETED_DEVICE_FAMILY: "1"
 
@@ -39,10 +42,12 @@ targets:
         # Privacy strings (shown when first asking for mic + speech).
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "TimeToGo listens for your spoken reply — \"I went\", \"snooze\", or \"stop\" — to a reminder. Audio stays on your device."
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "TimeToGo turns your spoken reply into a command. Recognition runs on-device."
-        # NOTE (free Apple ID): if Xcode signing rejects this entitlement, delete
-        # the CODE_SIGN_ENTITLEMENTS line below — the app still works, reminders
-        # just won't break through Focus/Do-Not-Disturb.
-        CODE_SIGN_ENTITLEMENTS: TimeToGo/TimeToGo.entitlements
+        # Time-Sensitive Notifications entitlement is DISABLED on the free Apple
+        # ID: a Personal Team can't sign it (Xcode errors "do not support the
+        # Time Sensitive Notifications capability"). The app still works;
+        # reminders just won't pierce Focus / Do-Not-Disturb. To re-enable on a
+        # paid Apple Developer account, uncomment the line below.
+        # CODE_SIGN_ENTITLEMENTS: TimeToGo/TimeToGo.entitlements
 
   TimeToGoTests:
     type: bundle.unit-test

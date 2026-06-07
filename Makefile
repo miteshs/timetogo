@@ -58,12 +58,14 @@ test: generate
 run: build
 	@xcrun simctl boot "$(SIM)" 2>/dev/null || true
 	@open -a Simulator
+	@xcrun simctl bootstatus "$(SIM)" -b
 	xcrun simctl install booted "$(DERIVED)/Build/Products/Debug-iphonesimulator/TimeToGo.app"
 	xcrun simctl launch booted $(BUNDLE)
 
 device: generate
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) \
-		-destination 'generic/platform=iOS' -derivedDataPath $(DERIVED) build
+		-destination 'generic/platform=iOS' -derivedDataPath $(DERIVED) \
+		-allowProvisioningUpdates build
 
 clean:
 	rm -rf $(PROJECT) $(DERIVED)

@@ -20,6 +20,22 @@ struct HomeView: View {
         return formatter.string(from: next.date)
     }
 
+    /// A still-pending snooze (the most recent action was a snooze whose time
+    /// hasn't arrived yet) is the real next reminder — show it instead of the
+    /// next hourly slot.
+    private var pendingSnoozeDate: Date? {
+        guard let latest = events.first,
+              latest.kind == .snoozed,
+              let minutes = latest.snoozeMinutes else { return nil }
+        let fire = latest.timestamp.addingTimeInterval(TimeInterval(minutes * 60))
+        return fire > .now ? fire : nil
+    }
+
+    private func minutesRemaining(until date: Date) -> String {
+        let mins = max(1, Int((date.timeIntervalSinceNow / 60).rounded(.up)))
+        return mins == 1 ? "1 minute" : "\(mins) minutes"
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 28) {
@@ -62,10 +78,22 @@ struct HomeView: View {
 
                 Spacer()
 
-                Label("Next reminder at \(nextReminderText)", systemImage: "clock")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .padding(.bottom)
+                Group {
+                    if let snooze = pendingSnoozeDate {
+                        Label {
+                            TimelineView(.periodic(from: .now, by: 60)) { _ in
+                                Text("Next reminder in \(minutesRemaining(until: snooze))")
+                            }
+                        } icon: {
+                            Image(systemName: "clock")
+                        }
+                    } else {
+                        Label("Next reminder at \(nextReminderText)", systemImage: "clock")
+                    }
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(.bottom)
             }
             .navigationTitle("TimeToGo")
         }

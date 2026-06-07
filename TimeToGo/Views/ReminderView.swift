@@ -109,8 +109,7 @@ struct ReminderView: View {
             voice.state = .denied
             return
         }
-        // Speak the prompt fully, THEN open the mic (no overlap), then listen.
-        await speak("Is it time to go? You can say: I went, snooze, or stop.")
+        // No spoken prompt — open the mic and start listening right away.
         beginListening()
         #endif
     }

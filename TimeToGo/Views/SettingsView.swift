@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 struct SettingsView: View {
     @Bindable private var settings = AppSettings.shared
@@ -8,6 +9,8 @@ struct SettingsView: View {
     @State private var lastTestMessage: String?
     @State private var whisperStatus: String?
     @State private var whisperLoading = false
+    @Environment(\.modelContext) private var context
+    @State private var showClearConfirm = false
 
     var body: some View {
         NavigationStack {
@@ -106,6 +109,16 @@ struct SettingsView: View {
             }
 
             Section {
+                Button("Clear all history", role: .destructive) {
+                    showClearConfirm = true
+                }
+            } header: {
+                Text("Data")
+            } footer: {
+                Text("Removes every recorded entry and the daily counts. Your reminders keep firing.")
+            }
+
+            Section {
                 LabeledContent("Installed", value: dateString(settings.installDate))
                 LabeledContent("Reinstall by", value: dateString(settings.reinstallByDate))
             } header: {
@@ -148,6 +161,12 @@ struct SettingsView: View {
         .task {
             if settings.useWhisperKit, VoiceEngine.isWhisperReady { whisperStatus = "Voice model ready." }
         }
+        .confirmationDialog("Clear all history?", isPresented: $showClearConfirm, titleVisibility: .visible) {
+            Button("Clear everything", role: .destructive) { clearHistory() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes every recorded entry. It can't be undone.")
+        }
     }
 
     // MARK: Helpers
@@ -176,6 +195,15 @@ struct SettingsView: View {
 
     private func reschedule() async {
         await NotificationScheduler.shared.rescheduleDaily(times: settings.reminderTimes)
+    }
+
+    /// Wipe all recorded events (the History + daily counts) and clear leftover
+    /// test/snooze notifications. Daily reminders keep firing.
+    private func clearHistory() {
+        try? context.delete(model: GoEvent.self)
+        try? context.save()
+        Task { await NotificationScheduler.shared.clearTransientNotifications() }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     /// Download + load the WhisperKit model when the toggle is turned on, so it's

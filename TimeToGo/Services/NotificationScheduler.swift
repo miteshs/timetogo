@@ -121,4 +121,15 @@ final class NotificationScheduler {
         let pending = await center.pendingNotificationRequests()
         return pending.filter { $0.identifier.hasPrefix(Self.dailyPrefix) }.count
     }
+
+    /// Clear delivered notifications and any leftover snooze/test requests, while
+    /// keeping the repeating daily reminders intact. Used by "Clear history".
+    func clearTransientNotifications() async {
+        center.removeAllDeliveredNotifications()
+        let pending = await center.pendingNotificationRequests()
+        let ids = pending.map(\.identifier).filter {
+            $0.hasPrefix(Self.snoozePrefix) || $0.hasPrefix(Self.testPrefix)
+        }
+        center.removePendingNotificationRequests(withIdentifiers: ids)
+    }
 }
